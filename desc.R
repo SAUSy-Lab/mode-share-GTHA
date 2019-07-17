@@ -1,6 +1,7 @@
 library(tidyverse)
 library(wesanderson)
 library(RColorBrewer)
+require(reshape2)
 
 setwd("~/Dropbox/work/mode/mode-share-GTHA/")
 
@@ -8,7 +9,7 @@ setwd("~/Dropbox/work/mode/mode-share-GTHA/")
 
 df <- as_tibble(read.csv("trip_cross_tabs/trips_cross_tabs.csv"))
 
-df$mode_cats <- recode_factor(df$mode_cats, 'Auto Driver' = "Auto Driver", 'Auto Passenger' = "Auto Passenger","Transit public" = "Transit (Public)", "Transit go" = "Transit (GO)","Transit public and go" = "Transit (Public & GO)", 'taxi and rideshare' = "Taxi & Rideshare", 'Walk' = "Walk", 'Bicycle' = "Bicycle", 'Other' = "Other" )
+df$mode_cats <- recode_factor(df$mode_cats, 'Auto Driver' = "Auto Driver", 'Auto Passenger' = "Auto Passenger","Transit public" = "Transit (Public)", "Transit go" = "Transit (GO)","Transit public and go" = "Transit (Public & GO)", 'taxi and rideshare' = "Taxi & Rideshare", 'Walk' = "Walk", 'Bicycle' = "Bicycle", 'Other' = "Z Other" )
 
 
 
@@ -21,6 +22,41 @@ bmode <- df %>%
   )
 
 bmode$prop <- bmode$total / sum(bmode$total)
+
+bmode$k <- round(bmode$prop * 1000,0)
+
+
+k_modes <- rev(c(
+  replicate(bmode$k[1], as.character(bmode$mode_cats[1])),
+  replicate(bmode$k[2], as.character(bmode$mode_cats[2])),
+  replicate(bmode$k[8], as.character(bmode$mode_cats[8])),
+  replicate(bmode$k[6], as.character(bmode$mode_cats[6])),
+  replicate(bmode$k[3], as.character(bmode$mode_cats[3])),
+  replicate(bmode$k[4], as.character(bmode$mode_cats[4])),
+  replicate(bmode$k[5], as.character(bmode$mode_cats[5])),
+  replicate(bmode$k[7], as.character(bmode$mode_cats[7])),
+  replicate(bmode$k[9], as.character(bmode$mode_cats[9]))
+  ))
+
+k_x <- rep(seq(1,25,by=1), 40)
+k_y <- rep(1:40, each=25)
+
+k <- data.frame(matrix(, nrow=1000, ncol=0))
+k$k_x <- k_x
+k$k_y <- k_y
+k$k_modes <- k_modes
+k$k_modes <- as.factor(k$k_modes)
+
+scheme <- c('#f54254','#ffbd42','#30ff87','#2e2e2e','#366643','#9255b5','#24a4ff','#ff3df2','#b3b3b3')
+
+legend <- c("Auto Driver","Auto Passenger","Bicycle","Taxi & Rideshare","Transit (GO)" ,"Transit (Public & GO)","Transit (Public)","Walk","Other")    
+
+# plot at 400 x 400 px
+ggplot() + 
+  geom_point(aes(y = k$k_y, x = k$k_x, color = k$k_modes), size = 1, stroke = 1) +
+  scale_colour_manual(values=scheme,labels = legend) +
+  labs(color = "Primary travel mode\nof 1000 trips") +
+  theme_void()
 
 
 
@@ -56,14 +92,6 @@ geom_point(aes(x = b_inc$inc_cats, y = b_inc$trips_mean), size = 2) +
   scale_x_discrete(labels =rev(c("decline / don't know", "$125k + ","$100k - $125k", "$60k - $100k", "$40k - $60k", "< $40k" ))) + 
   theme_minimal() +
   theme(axis.text.x = element_text(angle=45, hjust=1))
-
-
-
-# income and trips:
-
-  
-
-
 
 
 
@@ -126,21 +154,10 @@ pd <- ggplot() + geom_bar(aes(x=temp$income_cat, y=(100 * temp$prop), fill=forca
 
 # now let's look at car-ownership
 
-b_car <- df %>% 
-  group_by(hhld_veh_per_adult_cat) %>%
-  summarise(
-    total = sum(N)
-)
+b_car <- 
 
-b_car$prop <- b_car$total / sum(b_car$total)
 
-ggplot() + 
-  geom_bar(aes(x="", y=(100 * b_car$prop), fill=forcats::fct_rev(b_car$hhld_veh_per_adult_cat)), stat="identity", colour="white", width = 0.5) +
-  geom_text(aes(label = round(100 * b_car$prop, 0),x="", round(100 * b_car$prop, 0)), size = 3, position = position_stack(vjust = 0.5, reverse = FALSE), color = "white") +
-  xlab("") + ylab("Proportion of households by car ownership (%)") + labs(fill = "Vechiles per adult\n in the household (VA)") + 
-  scale_fill_manual(values=spectral_scheme, labels = c("VA >= 1", "0.5 < VA < 1", "VA = 0.5", "0 < VA < 0.5", "VA = 0"))  +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle=45, hjust=1)) + coord_flip()
+
 
 
 
@@ -152,8 +169,6 @@ b_mode_car <- df %>%
   summarise(
     total = sum(N)
   )
-
-
 
 b_mode_car <- inner_join(b_mode_car, bmode, by = "mode_cats")
 b_mode_car$prop <- b_mode_car$total.x / b_mode_car$total.y
